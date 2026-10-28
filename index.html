@@ -27,6 +27,7 @@
   button:disabled { opacity: .6; cursor: wait; }
   .err { color: var(--coral-ink); font-size: 13.5px; min-height: 1.2em; }
   :focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+  html.auto-unlock main { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -57,7 +58,14 @@ async function decrypt(raw) {
 }
 function show(html) { document.open(); document.write(html); document.close(); }
 (async () => {
-  try { const saved = localStorage.getItem(KEY); if (saved) { show(await decrypt(d64(saved))); return; } } catch (_) { try { localStorage.removeItem(KEY); } catch (_) {} }
+  let saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (_) {}
+  if (!saved) return;
+  document.documentElement.classList.add("auto-unlock");
+  // 等原本這頁解析完，再整頁換成索引；太早呼叫 document.write 會把索引「接」在登入畫面後面
+  if (document.readyState === "loading") await new Promise(r => document.addEventListener("DOMContentLoaded", r, { once: true }));
+  try { show(await decrypt(d64(saved))); }
+  catch (_) { try { localStorage.removeItem(KEY); } catch (_) {} document.documentElement.classList.remove("auto-unlock"); }
 })();
 document.getElementById("f").addEventListener("submit", async e => {
   e.preventDefault();
